@@ -318,8 +318,12 @@ function saveRegistro(data) {
     var newId=generateId_();
     var now=new Date(); var anio=now.getFullYear(); var mes=String(now.getMonth()+1).padStart(2,'0');
     var fechaHerr=Utilities.parseDate(String(data.fechaHerramienta||''),'America/Lima','yyyy-MM-dd');
+    // Nombre y cargo canónicos desde CFG_PERSONAL_URL para garantizar consistencia
+    var lu = lookupDNI(data.dni);
+    var nombreCanon = (lu && lu.ok && lu.nombre) ? lu.nombre : (data.nombre || '');
+    var cargoCanon  = (lu && lu.ok && lu.cargo)  ? lu.cargo  : (data.cargo  || '');
     var evaluadoCargo = lookupCargoByNombre_(data.evaluado || '');
-    sheet.appendRow([newId,data.dni,data.nombre,data.cargo,data.area,fechaHerr,now,data.tipo,data.cantidad,data.evaluado||'COMPLETADO',evaluadoCargo,data.links,anio,mes,data.archivos]);
+    sheet.appendRow([newId,data.dni,nombreCanon,cargoCanon,data.area,fechaHerr,now,data.tipo,data.cantidad,data.evaluado||'COMPLETADO',evaluadoCargo,data.links,anio,mes,data.archivos]);
     // Usar año/mes de FECHA_HERRAMIENTA para recalcular programados
     var hParts  = String(data.fechaHerramienta||'').split('-');
     var anioEjec = hParts[0] ? parseInt(hParts[0],10) : anio;
