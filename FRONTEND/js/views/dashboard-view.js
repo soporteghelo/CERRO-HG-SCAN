@@ -74,8 +74,7 @@ var DASH = {
 
   skeleton: function () {
     document.getElementById('dash-stats').innerHTML =
-      '<div class="skel" style="height:90px;border-radius:14px"></div>'.repeat(3) +
-      '<div class="skel" style="height:90px;border-radius:14px;grid-column:span 1"></div>';
+      '<div class="skel" style="height:72px;border-radius:14px"></div>'.repeat(4);
     document.getElementById('dash-tipos').innerHTML   = '<div class="skel" style="height:60px;border-radius:14px;margin-bottom:8px"></div>'.repeat(2);
     document.getElementById('dash-recientes').innerHTML = '<div class="skel" style="height:70px;border-radius:14px;margin-bottom:8px"></div>'.repeat(3);
   },
@@ -102,11 +101,11 @@ var DASH = {
       DASH.statCard('blue',  '📋', 'sv-prog', 'Programados') +
       DASH.statCard('green', '✅', 'sv-ejec', 'Ejecutados')  +
       DASH.statCard('orange','⏳', 'sv-pend', 'Pendientes')  +
-      `<div class="stat-card ${color}" style="grid-column:span 1">
+      `<div class="stat-card ${color}">
         <span class="stat-icon">📊</span>
         <div class="stat-val" id="sv-pct">0%</div>
         <div class="stat-lbl">Avance</div>
-        <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" id="sv-bar" style="width:0%"></div></div>
+        <div class="progress-bar" style="margin-top:5px;height:5px"><div class="progress-fill" id="sv-bar" style="width:0%"></div></div>
       </div>`;
 
     setTimeout(function () {
