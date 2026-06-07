@@ -56,8 +56,8 @@ function doPost(e) {
     switch (action) {
       case 'config':    out = validateAndSaveConfig(body.sheetsUrl, body.driveUrl, body.personalUrl); break;
       case 'upload':    out = uploadFiles(body.filesData, body.formData); break;
-      case 'addTipo':    out = addTipoHerramienta(body.tipo); break;
-      case 'editTipo':   out = editTipoHerramienta(body.old, body.nuevo); break;
+      case 'addTipo':    out = addTipoHerramienta(body.tipo, body.reqNombre); break;
+      case 'editTipo':   out = editTipoHerramienta(body.old, body.nuevo, body.reqNombre); break;
       case 'deleteTipo': out = deleteTipoHerramienta(body.tipo); break;
       case 'register':   out = registerUser_(body.dni, body.apellidos, body.nombres); break;
       case 'recalcular': out = recalcularTodo(body.anio, body.mes); break;
@@ -163,9 +163,11 @@ function setupSpreadsheet_(ss, personalId) {
   }
   var herr=getOrCreateSheet_(ss,'HERRAMIENTAS');
   if(herr.getLastRow()===0) {
-    herr.appendRow(['HERRAMIENTAS']); formatHeader_(herr,'#004d40');
-    ['AUD. IPERC','AUD. PETAR','AUD. HABLA FACIL','OPT','TALLER PERCEPCION','ORT','VCC','EV. EFICACIA','OTRO'].forEach(function(t){ herr.appendRow([t]); });
-    herr.setColumnWidth(1,220); herr.setTabColor('#004d40'); herr.setFrozenRows(1);
+    herr.appendRow(['HERRAMIENTAS','REQ. NOMBRE']); formatHeader_(herr,'#004d40');
+    [['AUD. IPERC','NO'],['AUD. PETAR','NO'],['AUD. HABLA FACIL','NO'],['OPT','SI'],
+     ['TALLER PERCEPCION','NO'],['ORT','NO'],['VCC','NO'],['EV. EFICACIA','NO'],['OTRO','NO']
+    ].forEach(function(t){ herr.appendRow(t); });
+    herr.setColumnWidth(1,220); herr.setColumnWidth(2,120); herr.setTabColor('#004d40'); herr.setFrozenRows(1);
   }
   ['Hoja 1','Sheet1','Hoja1'].forEach(function(n){
     try{var h=ss.getSheetByName(n);if(h&&ss.getSheets().length>1)ss.deleteSheet(h);}catch(e){}
@@ -352,6 +354,17 @@ function lookupCargoByNombre_(nombre) {
   } catch (e) { return 'SIN CARGO'; }
 }
 
+function tipoRequiereNombre_(tipo) {
+  try {
+    var tipos = getTiposHerramienta();
+    var key = String(tipo||'').trim().toUpperCase();
+    for (var i = 0; i < tipos.length; i++) {
+      if (tipos[i].nombre.toUpperCase() === key) return tipos[i].reqNombre;
+    }
+    return false;
+  } catch(e) { return false; }
+}
+
 function getProgramados(dni, anio, mes) {
   try {
     var sheet=getSpreadsheet_().getSheetByName('PROGRAMADOS');
@@ -454,7 +467,7 @@ function uploadFileToDrive_(base64,mimeType,ext,formData,seqOffset){
   var mes=(parts[1]||'').padStart(2,'0')||String(new Date().getMonth()+1).padStart(2,'0');
   var dia=(parts[2]||'').padStart(2,'0')||String(new Date().getDate()).padStart(2,'0');
   var folder=buildFolderPath_(anio,mes,formData.nombre,formData.dni);
-  var evaluado=String(formData.tipo||'').toUpperCase()==='OPT'?(formData.evaluado||'SN'):'SN';
+  var evaluado=tipoRequiereNombre_(formData.tipo)?(formData.evaluado||'SN'):'SN';
   var seq=countExistingFiles_(folder,anio,mes,dia,formData.tipo,evaluado)+parseInt(seqOffset,10);
   var name=buildFileName_(anio,mes,dia,formData.tipo,evaluado,seq,ext);
   var blob=Utilities.newBlob(Utilities.base64Decode(base64),mimeType,name);
@@ -524,47 +537,56 @@ function registerUser_(dni, apellidos, nombres) {
 // ────────────────────────────────────────────────────────────────
 
 function getTiposHerramienta(){
-  var def=['AUD. IPERC','AUD. PETAR','AUD. HABLA FACIL','OPT','TALLER PERCEPCION','ORT','VCC','EV. EFICACIA','OTRO'];
+  var def=[
+    {nombre:'AUD. IPERC',reqNombre:false},{nombre:'AUD. PETAR',reqNombre:false},
+    {nombre:'AUD. HABLA FACIL',reqNombre:false},{nombre:'OPT',reqNombre:true},
+    {nombre:'TALLER PERCEPCION',reqNombre:false},{nombre:'ORT',reqNombre:false},
+    {nombre:'VCC',reqNombre:false},{nombre:'EV. EFICACIA',reqNombre:false},{nombre:'OTRO',reqNombre:false}
+  ];
   try {
     var sheet = getSpreadsheet_().getSheetByName('HERRAMIENTAS');
     if (!sheet || sheet.getLastRow() < 2) return def;
-    var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
-    var result = vals.map(function(r){ return String(r[0]||'').trim(); }).filter(Boolean);
+    var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+    var result = vals.map(function(r){
+      var nombre = String(r[0]||'').trim();
+      return nombre ? {nombre:nombre, reqNombre:String(r[1]||'').trim().toUpperCase()==='SI'} : null;
+    }).filter(Boolean);
     return result.length ? result : def;
   } catch(e) { return def; }
 }
 
-function addTipoHerramienta(tipo) {
+function addTipoHerramienta(tipo, reqNombre) {
   try {
     tipo = String(tipo || '').trim().toUpperCase();
     if (!tipo) return { ok:false, msg:'Nombre vacío.' };
     var tipos = getTiposHerramienta();
-    if (tipos.map(function(t){return t.toUpperCase();}).indexOf(tipo) !== -1)
+    if (tipos.map(function(t){return t.nombre.toUpperCase();}).indexOf(tipo) !== -1)
       return { ok:false, msg:'El tipo "' + tipo + '" ya existe.' };
     var sheet = getSpreadsheet_().getSheetByName('HERRAMIENTAS');
     if (!sheet) return { ok:false, msg:'Hoja HERRAMIENTAS no encontrada.' };
-    sheet.appendRow([tipo]);
+    sheet.appendRow([tipo, reqNombre ? 'SI' : 'NO']);
     return { ok:true, tipos: getTiposHerramienta() };
   } catch(e) { return { ok:false, msg:e.message }; }
 }
 
-function editTipoHerramienta(oldNombre, newNombre) {
+function editTipoHerramienta(oldNombre, newNombre, reqNombre) {
   try {
     oldNombre = String(oldNombre || '').trim().toUpperCase();
     newNombre = String(newNombre || '').trim().toUpperCase();
     if (!newNombre) return { ok:false, msg:'Nombre vacío.' };
-    if (oldNombre === newNombre) return { ok:true, tipos: getTiposHerramienta() };
     var sheet = getSpreadsheet_().getSheetByName('HERRAMIENTAS');
     if (!sheet) return { ok:false, msg:'Hoja HERRAMIENTAS no encontrada.' };
     var data = sheet.getDataRange().getValues();
-    // Verificar duplicado
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][0]||'').trim().toUpperCase() === newNombre)
-        return { ok:false, msg:'El tipo "' + newNombre + '" ya existe.' };
+    if (oldNombre !== newNombre) {
+      for (var i = 1; i < data.length; i++) {
+        if (String(data[i][0]||'').trim().toUpperCase() === newNombre)
+          return { ok:false, msg:'El tipo "' + newNombre + '" ya existe.' };
+      }
     }
     for (var j = 1; j < data.length; j++) {
       if (String(data[j][0]||'').trim().toUpperCase() === oldNombre) {
         sheet.getRange(j+1, 1).setValue(newNombre);
+        if (reqNombre !== undefined) sheet.getRange(j+1, 2).setValue(reqNombre ? 'SI' : 'NO');
         return { ok:true, tipos: getTiposHerramienta() };
       }
     }

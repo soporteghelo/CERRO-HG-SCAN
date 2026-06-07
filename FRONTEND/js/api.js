@@ -63,12 +63,12 @@ var API = {
     return API._post({ action: 'upload', filesData: filesData, formData: formData });
   },
 
-  addTipo: function (tipo) {
-    return API._post({ action: 'addTipo', tipo: tipo });
+  addTipo: function (tipo, reqNombre) {
+    return API._post({ action: 'addTipo', tipo: tipo, reqNombre: !!reqNombre });
   },
 
-  editTipo: function (old, nuevo) {
-    return API._post({ action: 'editTipo', old: old, nuevo: nuevo });
+  editTipo: function (old, nuevo, reqNombre) {
+    return API._post({ action: 'editTipo', old: old, nuevo: nuevo, reqNombre: !!reqNombre });
   },
 
   deleteTipo: function (tipo) {

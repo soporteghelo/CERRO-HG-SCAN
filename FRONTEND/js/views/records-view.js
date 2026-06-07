@@ -13,7 +13,8 @@ var REC = {
     var tipSel = document.getElementById('rec-tipo');
     if (tipSel && tipSel.options.length === 1 && APP.tipos.length) {
       APP.tipos.forEach(function (t) {
-        var o = document.createElement('option'); o.value = t; o.textContent = t;
+        var nombre = typeof t === 'object' ? t.nombre : t;
+        var o = document.createElement('option'); o.value = nombre; o.textContent = nombre;
         tipSel.appendChild(o);
       });
     }

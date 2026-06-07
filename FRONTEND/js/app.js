@@ -8,6 +8,15 @@ var APP = {
   _current:   null,
   _transit:   false,
 
+  tipoReqNombre: function (nombre) {
+    for (var i = 0; i < APP.tipos.length; i++) {
+      var t = APP.tipos[i];
+      var n = typeof t === 'object' ? t.nombre : t;
+      if (n === nombre) return typeof t === 'object' ? !!t.reqNombre : false;
+    }
+    return false;
+  },
+
   init: function () {
     API.status()
       .then(function (res) {

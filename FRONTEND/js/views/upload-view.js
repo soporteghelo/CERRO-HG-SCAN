@@ -28,7 +28,8 @@ var UP = {
   _tiposHtml: function (selected) {
     return '<option value="">Tipo…</option>' +
       APP.tipos.map(function (t) {
-        return '<option value="' + t + '"' + (t === selected ? ' selected' : '') + '>' + t + '</option>';
+        var nombre = typeof t === 'object' ? t.nombre : t;
+        return '<option value="' + nombre + '"' + (nombre === selected ? ' selected' : '') + '>' + nombre + '</option>';
       }).join('');
   },
 
@@ -81,7 +82,7 @@ var UP = {
     var entry = UP.getEntry(id);
     var card  = document.getElementById('ue-' + id);
     if (!entry || !card) return;
-    var needsEvaluado = entry.tipo && entry.tipo.toUpperCase() === 'OPT';
+    var needsEvaluado = entry.tipo && APP.tipoReqNombre(entry.tipo);
     var ok = !!(UP._userOk(entry) && entry.tipo && entry.area.trim() && entry.fecha && entry.files.length &&
                 (!needsEvaluado || entry.evaluado));
     card.classList.toggle('complete', ok);
@@ -143,7 +144,8 @@ var UP = {
     UP._renderCard(newId);
     // Pre-rellenar campos del nuevo card
     if (src.tipo) {
-      if (APP.tipos.indexOf(src.tipo) !== -1) {
+      var tipoExists = APP.tipos.some(function(t){ return (typeof t==='object'?t.nombre:t)===src.tipo; });
+      if (tipoExists) {
         var ut = document.getElementById('ut-' + newId); if (ut) ut.value = src.tipo;
       } else {
         UP.onTipoChange(newId, 'OTRO');
@@ -359,9 +361,9 @@ var UP = {
 
   // ── Tipo personalizado (OTRO) ────────────────────────────────
   onTipoChange: function (id, val) {
-    // Mostrar u ocultar sección Evaluado según tipo=OP
+    // Mostrar u ocultar sección Evaluado según REQ. NOMBRE del tipo
     var evSec = document.getElementById('uev-' + id);
-    var isOP  = val.toUpperCase() === 'OPT';
+    var isOP  = val && APP.tipoReqNombre(val);
     if (evSec) {
       evSec.style.display = isOP ? 'block' : 'none';
       if (!isOP) {
@@ -517,7 +519,7 @@ var UP = {
       var e = UP.entries[i], n = i + 1;
       if (!UP._userOk(e)) { toast('Herramienta #' + n + ': ingresa DNI y nombre del trabajador', 'warning'); return false; }
       if (!e.tipo)         { toast('Herramienta #' + n + ': selecciona el tipo',         'warning'); return false; }
-      if (e.tipo.toUpperCase() === 'OPT' && !e.evaluado) { toast('Herramienta #' + n + ': ingresa el evaluado', 'warning'); return false; }
+      if (APP.tipoReqNombre(e.tipo) && !e.evaluado) { toast('Herramienta #' + n + ': ingresa el evaluado', 'warning'); return false; }
       if (!e.area.trim())  { toast('Herramienta #' + n + ': ingresa el área',            'warning'); return false; }
       if (!e.fecha)        { toast('Herramienta #' + n + ': selecciona la fecha',        'warning'); return false; }
       if (!e.files.length) { toast('Herramienta #' + n + ': adjunta el archivo','warning'); return false; }
