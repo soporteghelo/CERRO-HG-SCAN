@@ -159,11 +159,11 @@ function setupSpreadsheet_(ss, personalId) {
     master.appendRow(['00000000','ADMINISTRADOR','ADMIN',true,'admin123']);
     master.getRange(1,5).setNote('Dejar en blanco = sin contraseña. Llenar para exigir contraseña al login.');
   }
-  var cfg=getOrCreateSheet_(ss,'CONFIG');
-  if(cfg.getLastRow()===0) {
-    cfg.appendRow(['CLAVE','VALOR']); formatHeader_(cfg,'#33691e');
-    cfg.appendRow(['TIPOS_HERRAMIENTA','EPP,CHARLA,CAPACITACION,INSPECCION,PERMISO DE TRABAJO,ATS,PETS,OTRO']);
-    cfg.appendRow(['APP_VERSION','2.0.0']); cfg.setColumnWidth(1,220); cfg.setColumnWidth(2,420); cfg.setTabColor('#33691e');
+  var herr=getOrCreateSheet_(ss,'HERRAMIENTAS');
+  if(herr.getLastRow()===0) {
+    herr.appendRow(['HERRAMIENTAS']); formatHeader_(herr,'#004d40');
+    ['AUD. IPERC','AUD. PETAR','AUD. HABLA FACIL','OPT','TALLER PERCEPCION','ORT','VCC','EV. EFICACIA','OTRO'].forEach(function(t){ herr.appendRow([t]); });
+    herr.setColumnWidth(1,220); herr.setTabColor('#004d40'); herr.setFrozenRows(1);
   }
   ['Hoja 1','Sheet1','Hoja1'].forEach(function(n){
     try{var h=ss.getSheetByName(n);if(h&&ss.getSheets().length>1)ss.deleteSheet(h);}catch(e){}
@@ -522,8 +522,14 @@ function registerUser_(dni, apellidos, nombres) {
 // ────────────────────────────────────────────────────────────────
 
 function getTiposHerramienta(){
-  var def=['AUD. IPERC','AUD. PETAR','HABLA FACIL','OPT','TALLER PERCEPCION','ORT','OTRO'];
-  try{var cfg=getSpreadsheet_().getSheetByName('CONFIG');if(!cfg)return def;var data=cfg.getDataRange().getValues();for(var i=0;i<data.length;i++)if(data[i][0]==='TIPOS_HERRAMIENTA')return String(data[i][1]).split(',').map(function(t){return t.trim();}).filter(Boolean);return def;}catch(e){return def;}
+  var def=['AUD. IPERC','AUD. PETAR','AUD. HABLA FACIL','OPT','TALLER PERCEPCION','ORT','VCC','EV. EFICACIA','OTRO'];
+  try {
+    var sheet = getSpreadsheet_().getSheetByName('HERRAMIENTAS');
+    if (!sheet || sheet.getLastRow() < 2) return def;
+    var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    var result = vals.map(function(r){ return String(r[0]||'').trim(); }).filter(Boolean);
+    return result.length ? result : def;
+  } catch(e) { return def; }
 }
 
 function addTipoHerramienta(tipo) {
@@ -533,17 +539,10 @@ function addTipoHerramienta(tipo) {
     var tipos = getTiposHerramienta();
     if (tipos.map(function(t){return t.toUpperCase();}).indexOf(tipo) !== -1)
       return { ok:false, msg:'El tipo "' + tipo + '" ya existe.' };
-    tipos.push(tipo);
-    var cfg = getSpreadsheet_().getSheetByName('CONFIG');
-    if (!cfg) return { ok:false, msg:'Hoja CONFIG no encontrada.' };
-    var data = cfg.getDataRange().getValues();
-    for (var i = 0; i < data.length; i++) {
-      if (String(data[i][0]) === 'TIPOS_HERRAMIENTA') {
-        cfg.getRange(i + 1, 2).setValue(tipos.join(','));
-        return { ok:true, tipos:tipos };
-      }
-    }
-    return { ok:false, msg:'Clave TIPOS_HERRAMIENTA no encontrada.' };
+    var sheet = getSpreadsheet_().getSheetByName('HERRAMIENTAS');
+    if (!sheet) return { ok:false, msg:'Hoja HERRAMIENTAS no encontrada.' };
+    sheet.appendRow([tipo]);
+    return { ok:true, tipos: getTiposHerramienta() };
   } catch(e) { return { ok:false, msg:e.message }; }
 }
 function getSpreadsheetUrl(){try{return getSpreadsheet_().getUrl();}catch(e){return null;}}
