@@ -287,7 +287,7 @@ var UP = {
       '<div onclick="document.getElementById(\'ufi-' + id + '\').click()"' +
         ' class="drop-zone-sm" style="margin-bottom:6px">' +
         '<span class="material-icons" style="color:var(--primary-light);font-size:1.6rem">cloud_upload</span>' +
-        '<p style="font-size:.76rem;margin:2px 0 0;color:var(--text-muted)">Toca para adjuntar · 1 archivo · PDF, JPG, PNG, DOCX</p>' +
+        '<p style="font-size:.74rem;margin:2px 0 0;color:var(--text-muted)">Fotos: múltiples páginas → 1 PDF · PDF/Doc: 1 archivo</p>' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px">' +
         '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'ufc-' + id + '\').click()" style="margin-top:0;width:100%">' +
@@ -297,7 +297,7 @@ var UP = {
           '<span class="material-icons" style="font-size:1rem">folder_open</span> Archivos' +
         '</button>' +
       '</div>' +
-      '<input type="file" id="ufi-' + id + '" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none"' +
+      '<input type="file" id="ufi-' + id + '" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple style="display:none"' +
         ' onchange="UP.onFiles(' + id + ',this.files)">' +
       '<input type="file" id="ufc-' + id + '" accept="image/*" capture="environment" style="display:none"' +
         ' onchange="UP.onFiles(' + id + ',this.files)">' +
@@ -311,7 +311,16 @@ var UP = {
   // ── Archivos ─────────────────────────────────────────────────
   onFiles: function (id, list) {
     var entry = UP.getEntry(id); if (!entry) return;
-    if (list.length > 0) entry.files = [list[0]];
+    var newFiles = Array.from(list);
+    if (!newFiles.length) return;
+    var allNewImages  = newFiles.every(function(f) { return f.type.startsWith('image/'); });
+    var allExistImages = !entry.files.length || entry.files.every(function(f) { return f.type.startsWith('image/'); });
+    if (allNewImages && allExistImages) {
+      entry.files = entry.files.concat(newFiles); // append: múltiples fotos → PDF
+    } else {
+      if (entry.files.length && allExistImages) toast('Fotos reemplazadas por el archivo', 'warning', 2000);
+      entry.files = newFiles;
+    }
     UP._renderFiles(id);
     var fi = document.getElementById('ufi-' + id); if (fi) fi.value = '';
     var fc = document.getElementById('ufc-' + id); if (fc) fc.value = '';
@@ -320,43 +329,86 @@ var UP = {
 
   removeFile: function (eid, idx) {
     var entry = UP.getEntry(eid); if (!entry) return;
+    var allImages = entry.files.length > 0 && entry.files.every(function(f) { return f.type.startsWith('image/'); });
+    if (allImages) {
+      entry.files.splice(idx, 1);
+      UP._renderFiles(eid); UP.checkCompletion(eid); vibrate(20);
+      return;
+    }
     var container = document.getElementById('ufl-' + eid);
     if (container) {
       var items = container.querySelectorAll('.file-item');
       if (items[idx]) {
         items[idx].classList.add('removing');
-        setTimeout(function () {
-          entry.files.splice(idx, 1);
-          UP._renderFiles(eid);
-          UP.checkCompletion(eid);
-        }, 200);
+        setTimeout(function () { entry.files.splice(idx, 1); UP._renderFiles(eid); UP.checkCompletion(eid); }, 200);
         return;
       }
     }
-    entry.files.splice(idx, 1);
-    UP._renderFiles(eid);
-    UP.checkCompletion(eid);
+    entry.files.splice(idx, 1); UP._renderFiles(eid); UP.checkCompletion(eid);
   },
 
   _renderFiles: function (id) {
     var entry = UP.getEntry(id); if (!entry) return;
     var container = document.getElementById('ufl-' + id); if (!container) return;
     container.innerHTML = '';
-    entry.files.forEach(function (f, i) {
-      var isImg = f.type.startsWith('image/');
-      var div   = document.createElement('div');
-      div.className = 'file-item';
-      div.innerHTML =
-        '<div class="file-thumb">' + (isImg ? '<img id="uft-'+id+'-'+i+'" src="">' : fileIcon(f)) + '</div>' +
-        '<div class="file-info"><div class="file-name">' + f.name + '</div><div class="file-size">' + fmtSize(f.size) + '</div></div>' +
-        '<button class="file-remove" onclick="UP.removeFile(' + id + ',' + i + ')"><span class="material-icons">delete_outline</span></button>';
-      container.appendChild(div);
-      if (isImg) {
+    if (!entry.files.length) return;
+
+    var allImages = entry.files.every(function(f) { return f.type.startsWith('image/'); });
+
+    if (allImages) {
+      // Galería: thumbnails + badge PDF
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px;margin-top:4px';
+
+      var badge = document.createElement('div');
+      badge.style.cssText = 'display:flex;align-items:center;gap:5px;margin-bottom:7px;font-size:.72rem;color:#c62828;font-weight:700';
+      badge.innerHTML =
+        '<span class="material-icons" style="font-size:.9rem">picture_as_pdf</span>' +
+        entry.files.length + ' foto' + (entry.files.length > 1 ? 's' : '') +
+        ' → se compilarán en 1 PDF A4';
+      wrap.appendChild(badge);
+
+      var strip = document.createElement('div');
+      strip.style.cssText = 'display:flex;gap:6px;overflow-x:auto;padding-bottom:4px';
+
+      entry.files.forEach(function(f, i) {
+        var thumb = document.createElement('div');
+        thumb.style.cssText = 'position:relative;flex-shrink:0;width:68px;height:76px;border-radius:8px;overflow:hidden;border:1px solid var(--border)';
+        thumb.innerHTML =
+          '<img id="upth-' + id + '-' + i + '" src="" style="width:100%;height:100%;object-fit:cover">' +
+          '<button onclick="UP.removeFile(' + id + ',' + i + ')" ' +
+            'style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">' +
+            '<span class="material-icons" style="color:#fff;font-size:.7rem">close</span></button>' +
+          '<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.5);color:#fff;font-size:.58rem;text-align:center;padding:1px 0">Pág. ' + (i + 1) + '</div>';
+        strip.appendChild(thumb);
         var r = new FileReader();
-        r.onload = (function(ii,jj){ return function(ev){ var el=document.getElementById('uft-'+ii+'-'+jj); if(el) el.src=ev.target.result; }; })(id, i);
+        r.onload = (function(ii, jj) { return function(ev) {
+          var el = document.getElementById('upth-' + ii + '-' + jj);
+          if (el) el.src = ev.target.result;
+        }; })(id, i);
         r.readAsDataURL(f);
-      }
-    });
+      });
+
+      wrap.appendChild(strip);
+      container.appendChild(wrap);
+    } else {
+      // Vista normal para PDFs/docs (1 archivo)
+      entry.files.forEach(function(f, i) {
+        var isImg = f.type.startsWith('image/');
+        var div = document.createElement('div');
+        div.className = 'file-item';
+        div.innerHTML =
+          '<div class="file-thumb">' + (isImg ? '<img id="uft-'+id+'-'+i+'" src="">' : fileIcon(f)) + '</div>' +
+          '<div class="file-info"><div class="file-name">' + f.name + '</div><div class="file-size">' + fmtSize(f.size) + '</div></div>' +
+          '<button class="file-remove" onclick="UP.removeFile(' + id + ',' + i + ')"><span class="material-icons">delete_outline</span></button>';
+        container.appendChild(div);
+        if (isImg) {
+          var r = new FileReader();
+          r.onload = (function(ii,jj){ return function(ev){ var el=document.getElementById('uft-'+ii+'-'+jj); if(el) el.src=ev.target.result; }; })(id, i);
+          r.readAsDataURL(f);
+        }
+      });
+    }
   },
 
   // ── Tipo personalizado (OTRO) ────────────────────────────────
