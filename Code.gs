@@ -404,7 +404,7 @@ function actualizarEjecutados_(ss,dni,tipo,anio,mes) {
       var p=pD[j][5]||0;
       pS.getRange(j+1,7).setValue(count);
       pS.getRange(j+1,8).setValue(Math.max(0,p-count));
-      pS.getRange(j+1,9).setValue(p>0?Math.round((count/p)*100):0);
+      pS.getRange(j+1,9).setValue(p>0?Math.min(1,Math.round(count/p*100)/100):0);
       break;
     }
   }
@@ -581,7 +581,7 @@ function recalcularTodo(anio, mes) {
       var prog = row[5] || 0;
       pS.getRange(j+1, 7).setValue(count);
       pS.getRange(j+1, 8).setValue(Math.max(0, prog - count));
-      pS.getRange(j+1, 9).setValue(prog > 0 ? Math.round((count / prog) * 100) : 0);
+      pS.getRange(j+1, 9).setValue(prog > 0 ? Math.min(1, Math.round(count/prog*100)/100) : 0);
       updated++;
     }
     return { ok:true, updated:updated };
